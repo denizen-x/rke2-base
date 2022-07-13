@@ -1,0 +1,60 @@
+Port 22
+ListenAddress 0.0.0.0
+AddressFamily inet
+
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com
+HostKeyAlgorithms rsa-sha2-512,rsa-sha2-256,ssh-ed25519,sk-ssh-ed25519@openssh.com,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com
+
+AuthorizedKeysFile .ssh/authorized_keys
+AuthenticationMethods publickey
+PubkeyAuthentication yes
+PasswordAuthentication no
+HostbasedAuthentication no
+ChallengeResponseAuthentication no
+PermitRootLogin no
+PermitEmptyPasswords no
+StrictModes yes
+IgnoreRhosts yes
+AllowGroups operator
+UsePAM no
+UseDNS no
+LoginGraceTime 16s
+MaxAuthTries 3
+MaxSessions 3
+MaxStartups 3:50:10
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+SyslogFacility AUTH
+LogLevel VERBOSE
+PrintLastLog yes
+TCPKeepAlive yes
+GatewayPorts no
+PermitTunnel no
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+AcceptEnv LANG LC_*
+
+Subsystem sftp /usr/lib/openssh/sftp-server -f AUTHPRIV -l INFO
+
+Match Address 127.0.0.0/8,10.0.0.0/8
+  AllowGroups operator
+  MaxSessions 3
+  X11Forwarding yes
+  AllowTcpForwarding yes
+  AllowAgentForwarding yes
+  AcceptEnv LANG LC_* EDITOR PAGER COLORTERM SYSTEMD_EDITOR
+
+Match Group operator
+  MaxSessions 3
+  X11Forwarding yes
+  AllowTcpForwarding yes
+  AllowAgentForwarding yes
+  AcceptEnv LANG LC_* EDITOR PAGER COLORTERM SYSTEMD_EDITOR
