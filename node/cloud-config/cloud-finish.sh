@@ -43,7 +43,7 @@ iface_names ()
 
 iface_addr ()
 {
-    [[ -z "${1:-}" ]] && return || echo "$(ip -4 -f inet a show ${1} | awk '/inet/{ print $2 }')"
+    [[ -z "${1:-}" ]] && return || echo "$(ip -4 -f inet a show ${1} | awk '/inet/{ print $2 }' | awk -F "/" '{ print $1 }')"
 }
 # · ---
 [[ -f /root/environment.local ]] && source /root/environment.local && rm -f /root/environment.local
@@ -128,10 +128,10 @@ ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "";
 mv /etc/ssh/moduli /etc/ssh/moduli.dist;
 awk '$5 >= 3071' /etc/ssh/moduli.dist > /etc/ssh/moduli;
 
-sed -r \
-    -e "s/^ListenAddress 0.0.0.0/ListenAddress $THIS_IF0_IP/g" \
-    -e "$([[ ! -z "$THIS_IF1_IP" ]] && echo "/^ListenAddress $THIS_IF0_IP$/a ListenAddress $THIS_IF1_IP")" \
-    -e "$([[ ! -z "$THIS_IF2_IP" ]] && echo "/^ListenAddress $THIS_IF1_IP$/a ListenAddress $THIS_IF2_IP")" \
+sed -ri \
+    -e "s/^ListenAddress 0.0.0.0/ListenAddress ${THIS_IF0_IP}/g" \
+    -e "$([[ ! -z "$THIS_IF1_IP" ]] && echo "/^ListenAddress ${THIS_IF0_IP}$/a ListenAddress ${THIS_IF1_IP}")" \
+    -e "$([[ ! -z "$THIS_IF2_IP" ]] && echo "/^ListenAddress ${THIS_IF1_IP}$/a ListenAddress ${THIS_IF2_IP}")" \
     /etc/ssh/sshd_config;
 
 if [[ ! "$THIS_SSH" == "22" ]]; then
