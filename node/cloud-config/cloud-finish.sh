@@ -3,12 +3,11 @@ exec 1> >(logger -s -t $(basename $0)) 2>&1
 # · ---
 export DEBIAN_FRONTEND=noninteractive
 # · ---
-REPO="https://raw.githubusercontent.com/jota-equis/k-cluster/9b61249eb853132b7403bb890554a7aac3668bb0";
 NCPU=$(nproc)
 NPID=$((32768 * ($NCPU - 1) - 1))
 NTROPY="$(cat /proc/sys/kernel/random/entropy_avail)"
 # · ---
-function bashrc_prefs ()
+bashrc_prefs ()
 {
     local u="${1:-}"; local h; local f;
 
@@ -20,7 +19,7 @@ function bashrc_prefs ()
     sed -i 's/^#force_color_prompt/force_color_prompt/g' $f;
     
     echo -e "\n[[ -f /etc/bash_completion ]] && ! shopt -oq posix && . /etc/bash_completion" >> $f;
-    echo -e "\n[[ -f /srv/data/local/etc/kuberc ]] && . /srv/local/etc/kuberc\n" >> $f;
+    echo -e "\n[[ -f /srv/data/local/etc/kuberc ]] && . /srv/data/local/etc/kuberc\n" >> $f;
     echo 'export PS1="\[\e[31m\][\[\e[m\]\[\e[38;5;172m\]\u\[\e[m\]@\[\e[38;5;153m\]\h\[\e[m\] \[\e[38;5;214m\]\W\[\e[m\]\[\e[31m\]]\[\e[m\]\\$ "' >> $f;
     
     echo -e "\nalias top-cpu='top -b -o +%CPU | head -n 22'" >> $f;
@@ -29,6 +28,22 @@ function bashrc_prefs ()
     mkdir -pm 0750 $h/.kube && chown $u:$u $h/.kube;
     touch $h/.kube/config && chmod 0600 $h/.kube/config;
     chown $u:$u $h/.kube/config $h/.selected_editor;
+}
+
+iface_names ()
+{
+    local -a d=()
+    
+    for n in $(find /sys/class/net -type l -not -lname '*virtual*' -printf '%f ' | tr " " "\n" | sort); do
+        d+=( "$n" );
+    done
+    
+    echo "${d[*]}"
+}
+
+iface_addr ()
+{
+    [[ -z "${1:-}" ]] && return || echo "$(ip -4 -f inet a show ${1} | awk '/inet/{ print $2 }')"
 }
 # · ---
 [[ -f /root/environment.local ]] && source /root/environment.local && rm -f /root/environment.local
@@ -43,6 +58,14 @@ THIS_CIDR="$THIS_CIDR" || THIS_CIDR="10.0.0.0/16";
 THIS_CIDR_POD="$THIS_CIDR_POD" || THIS_CIDR_POD="10.42.0.0/16";
 THIS_CIDR_SVC="$THIS_CIDR_SVC" || THIS_CIDR_SVC="10.43.0.0/16";
 THIS_IPV6="${THIS_IPV6:-0}";
+THIS_IFACES+=( $(iface_names) )
+THIS_IF0="${THIS_IFACES[0]}"
+THIS_IF1="${THIS_IFACES[1]}"
+THIS_IF2="${THIS_IFACES[2]}"
+THIS_IF0_IP="$(iface_addr ${THIS_IF0:-})"
+THIS_IF1_IP="$(iface_addr ${THIS_IF1:-})"
+THIS_IF2_IP="$(iface_addr ${THIS_IF2:-})"
+
 # · ---
 echo -e "| CLOUD-FINISH ... :: start :: ..."
 # · ---
@@ -52,7 +75,9 @@ localectl set-locale LANGUAGE="es_ES:en:en_US" LC_MESSAGES=C LC_COLLATE=C;
 # Custom dirs
 cd ~;
 mkdir -pm0751 /etc/rancher /srv/{backup,data} /var/lib/rancher /mnt/{storage,tmp};
-mkdir -pm0751 /srv/data/{local/{bin,etc},rke2} /etc/rancher/rke2; chmod 0750 /etc/rancher/rke2 /srv/data/rke2;
+mkdir -pm0751 /srv/data/{local/{bin,etc},rke2} /etc/rancher/rke2;
+chmod 0755 /srv/data /srv/data/local/etc;
+chmod 0750 /etc/rancher/rke2 /srv/data/rke2;
 
 # Default config files
 if [[ -d /root/rke2-base ]]; then
@@ -82,6 +107,10 @@ rm -Rf /tmp/* /tmp/.* && systemctl enable tmp.mount --now;
 # Entropy
 [[ ${NTROPY:-0} -lt 1024 ]] && systemctl enable haveged.service --now;
 
+# Grub conf: classic net device names
+sed -i -e 's/^GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0"/' /etc/default/grub;
+update-grub;
+
 # Disk tune
 echo -e "block/sd*/queue/rotational=0\nblock/dm*/queue/rotational=0" > /etc/sysfs.d/rotational-false.conf;
 for d in $(lsblk -dnoNAME | grep sd); do
@@ -99,8 +128,13 @@ ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "";
 mv /etc/ssh/moduli /etc/ssh/moduli.dist;
 awk '$5 >= 3071' /etc/ssh/moduli.dist > /etc/ssh/moduli;
 
+sed -r \
+    -e "s/^ListenAddress 0.0.0.0/ListenAddress $THIS_IF0_IP/g" \
+    -e "$([[ ! -z "$THIS_IF1_IP" ]] && echo "/^ListenAddress $THIS_IF0_IP$/a ListenAddress $THIS_IF1_IP")" \
+    -e "$([[ ! -z "$THIS_IF2_IP" ]] && echo "/^ListenAddress $THIS_IF1_IP$/a ListenAddress $THIS_IF2_IP")" \
+    /etc/ssh/sshd_config;
+
 if [[ ! "$THIS_SSH" == "22" ]]; then
-#añadir listen addr
     sed -ri -e "s/^Port 22/Port ${THIS_SSH}/" /etc/ssh/ssh_config /etc/ssh/sshd_config;
     sed -i "s/^port = 22$/&,${THIS_SSH}/" /etc/fail2ban/jail.d/sshd.conf;
     [[ "$THIS_SSH_KEEP" = "1" ]] && sed -i "/^Port ${THIS_SSH}/a Port 22" /etc/ssh/sshd_config;
