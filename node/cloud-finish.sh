@@ -1,0 +1,1 @@
+/home/loganx/Workspace/repos/rancher-cluster/node/cloud-finish.sh
