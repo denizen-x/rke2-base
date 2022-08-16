@@ -233,6 +233,7 @@ sysctl --system;
 systemctl enable sysfsutils;
 systemctl enable fail2ban --now;
 systemctl enable fstrim.timer --now;
+systemctl disable systemd-resolved --now;
 systemctl restart ssh;
 
 # · ---
