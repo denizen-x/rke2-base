@@ -159,6 +159,23 @@ sed -ri \
 # IPv6 support
 [[ "$THIS_IPV6" = "1" ]] && sed -i 's/^net.ipv6/# net.ipv6/g' /etc/sysctl.d/999-local.conf;
 
+# DNS resolv
+rm -f /etc/resolv.conf;
+
+cat << 'EOF' > /etc/systemd/resolved.conf
+[Resolve]
+DNS=185.12.64.1 1.1.1.1 8.8.8.8 2606:4700:4700::1111
+DNSStubListener=No
+ReadEtcHosts=yes
+EOF
+
+cat << 'EOF' > /etc/resolv.conf
+nameserver 185.12.64.1
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+nameserver 2606:4700:4700::1111
+EOF
+
 # User prefs
 bashrc_prefs root;
 
@@ -214,8 +231,11 @@ ln -sf /var/lib/rancher/rke2/agent/etc/crictl.yaml /etc/crictl.yaml;
 # Reload configs
 sysctl --system;
 
-# Fail2ban
+# System Services
+systemctl enable sysfsutils;
 systemctl enable fail2ban --now;
+systemctl enable fstrim.timer --now;
+systemctl restart ssh;
 
 # · ---
 DEBIAN_FRONTEND=noninteractive apt -y full-upgrade && apt -y autoclean && apt -y autoremove && sync;
@@ -223,3 +243,5 @@ fstrim --all;
 # · ---
 echo -e "| CLOUD-FINISH ... :: end :: ..."
 # · ---
+
+return 0
