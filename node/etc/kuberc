@@ -1,0 +1,33 @@
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH:/var/lib/rancher/rke2/bin"
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export KUBE_EDITOR=/usr/bin/nano
+
+# kubectl
+if command -v kubectl &> /dev/null; then
+    alias k="kubectl";
+    alias kgp="kubectl get pods";
+    alias kgs="kubectl get services -A -o wide";
+    alias kge="kubectl get endpoints -A -o wide";
+    alias kgn="kubectl get nodes -A -o wide";
+    alias kga="kubectl get all -A";
+
+    source <(kubectl completion bash);
+    complete -F __start_kubectl k;
+fi
+
+# kubectl plugins
+if command -v kubectl-ctx &> /dev/null; then
+    alias kctx="kubectl-ctx";
+fi
+
+if command -v kubectl-ns &> /dev/null; then
+    alias kns="kubectl-ns";
+fi
+
+# helm
+if command -v helm &> /dev/null; then
+    alias h="helm";
+
+    source <(helm completion bash);
+    complete -F __start_helm h;
+fi

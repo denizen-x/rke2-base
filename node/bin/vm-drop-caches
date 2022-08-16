@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+sync && sleep 0.1 && sync && sleep 0.1 && echo 3 > /proc/sys/vm/drop_caches && sync; 
+
+exit 0
