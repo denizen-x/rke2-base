@@ -89,8 +89,6 @@ if [[ -d /root/rke2-base ]]; then
     install -Dm0644 /root/rke2-base/node/etc/sysctl.d/999-local.conf /etc/sysctl.d/999-local.conf;
     install -Dm0644 /root/rke2-base/node/etc/fail2ban/jail.d/sshd.conf /etc/fail2ban/jail.d/sshd.conf;
     install -Dm0644 /root/rke2-base/node/etc/kuberc /srv/data/local/etc/kuberc;
-    
-    rm -Rf /root/rke2-base;
 fi
 
 touch /srv/data/rke2/config.yaml && chmod 0640 /srv/data/rke2/config.yaml;
