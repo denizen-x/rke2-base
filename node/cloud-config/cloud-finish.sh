@@ -48,7 +48,19 @@ iface_addr ()
     [[ -z "${1:-}" ]] && return || echo "$(ip -4 -f inet a show ${1} | awk '/inet/{ print $2 }' | awk -F "/" '{ print $1 }')"
 }
 # · ---
-[[ -f /root/environment.local ]] && source /root/environment.local && rm -f /root/environment.local
+echo -e "| CLOUD-FINISH ... :: start :: ..."
+# · ---
+# Custom dirs
+cd ~;
+mkdir -pm0751 /etc/rancher /srv/{backup,data} /var/lib/rancher /mnt/{storage,tmp};
+mkdir -pm0751 /srv/data/{local/{bin,etc},rke2} /etc/rancher/rke2;
+chmod 0755 /srv/data /srv/data/local/etc;
+chmod 0750 /etc/rancher/rke2 /srv/data/rke2;
+
+[[ -f /root/environment.local ]] && install -Dm0640 /root/environment.local /srv/backup/environment.local && rm -f /root/environment.local;
+[[ -f /srv/backup/environment.local ]] && source /srv/backup/environment.local;
+
+# Envs
 THIS_ROLE="${THIS_ROLE:-worker}"
 THIS_USER="${THIS_USER:-}"
 THIS_LANG="${THIS_LANG:-es_ES}"
@@ -60,6 +72,7 @@ THIS_CIDR="$THIS_CIDR" || THIS_CIDR="10.0.0.0/16";
 THIS_CIDR_POD="$THIS_CIDR_POD" || THIS_CIDR_POD="10.42.0.0/16";
 THIS_CIDR_SVC="$THIS_CIDR_SVC" || THIS_CIDR_SVC="10.43.0.0/16";
 THIS_IPV6="${THIS_IPV6:-0}";
+THIS_DNS="$THIS_DNS" || THIS_DNS="185.12.64.1 1.1.1.1 8.8.8.8 2606:4700:4700::1111";
 THIS_IFACES+=( $(iface_names) )
 THIS_IF0="${THIS_IFACES[0]}"
 THIS_IF1="${THIS_IFACES[1]}"
@@ -68,30 +81,34 @@ THIS_IF0_IP="$(iface_addr ${THIS_IF0:-})"
 THIS_IF1_IP="$(iface_addr ${THIS_IF1:-})"
 THIS_IF2_IP="$(iface_addr ${THIS_IF2:-})"
 
-# · ---
-echo -e "| CLOUD-FINISH ... :: start :: ..."
-# · ---
-# Locales
-localectl set-locale LANGUAGE="es_ES:en:en_US" LC_MESSAGES=C LC_COLLATE=C;
-
-# Custom dirs
-cd ~;
-mkdir -pm0751 /etc/rancher /srv/{backup,data} /var/lib/rancher /mnt/{storage,tmp};
-mkdir -pm0751 /srv/data/{local/{bin,etc},rke2} /etc/rancher/rke2;
-chmod 0755 /srv/data /srv/data/local/etc;
-chmod 0750 /etc/rancher/rke2 /srv/data/rke2;
-
 # Default config files
 if [[ -d /root/rke2-base ]]; then
+    cp -aux /root/rke2-base /srv/backup/;
+
     install -Dm0751 /root/rke2-base/node/bin/vm-drop-caches /srv/data/local/bin/vm-drop-caches \
       && cp -aux /srv/data/local/bin/vm-drop-caches /usr/local/bin/;
+
+    install -Dm0644 /root/rke2-base/node/etc/skel/.selected_editor /etc/skel/.selected_editor;
+
     install -Dm0600 /root/rke2-base/node/etc/ssh/sshd_config /etc/ssh/sshd_config;
+    install -Dm0644 /root/rke2-base/node/etc/ssh/ssh_config /etc/ssh/ssh_config;
+
+    install -Dm0440 /root/rke2-base/node/etc/sudoers.d/99-local /etc/sudoers.d/99-local;
+
+    install -Dm0644 /root/rke2-base/node/etc/systemd/timesyncd.conf /etc/systemd/timesyncd.conf;
+    install -Dm0644 /root/rke2-base/node/etc/systemd/resolved.conf /etc/systemd/resolved.conf;
+
     install -Dm0644 /root/rke2-base/node/etc/sysctl.d/999-local.conf /etc/sysctl.d/999-local.conf;
+
     install -Dm0644 /root/rke2-base/node/etc/fail2ban/jail.d/sshd.conf /etc/fail2ban/jail.d/sshd.conf;
+
     install -Dm0644 /root/rke2-base/node/etc/kuberc /srv/data/local/etc/kuberc;
 fi
 
 touch /srv/data/rke2/config.yaml && chmod 0640 /srv/data/rke2/config.yaml;
+
+# Locales
+localectl set-locale LANGUAGE="es_ES:en:en_US" LC_MESSAGES=C LC_COLLATE=C;
 
 # Entropy
 [[ ${NTROPY:-0} -lt 1024 ]] && systemctl enable haveged.service --now;
@@ -158,21 +175,18 @@ sed -ri \
 [[ "$THIS_IPV6" = "1" ]] && sed -i 's/^net.ipv6/# net.ipv6/g' /etc/sysctl.d/999-local.conf;
 
 # DNS resolv
-rm -f /etc/resolv.conf;
-
-cat << 'EOF' > /etc/systemd/resolved.conf
+cat << EOF > /etc/systemd/resolved.conf
 [Resolve]
-DNS=185.12.64.1 1.1.1.1 8.8.8.8 2606:4700:4700::1111
+DNS=${THIS_DNS}
 DNSStubListener=No
 ReadEtcHosts=yes
 EOF
 
-cat << 'EOF' > /etc/resolv.conf
-nameserver 185.12.64.1
-nameserver 1.1.1.1
-nameserver 8.8.8.8
-nameserver 2606:4700:4700::1111
-EOF
+rm -f /etc/resolv.conf;
+
+for i in $THIS_DNS; do
+    echo "nameserver $i" >> /etc/resolv.conf;
+done
 
 # User prefs
 bashrc_prefs root;
