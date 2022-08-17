@@ -72,7 +72,7 @@ THIS_CIDR="$THIS_CIDR" || THIS_CIDR="10.0.0.0/16";
 THIS_CIDR_POD="$THIS_CIDR_POD" || THIS_CIDR_POD="10.42.0.0/16";
 THIS_CIDR_SVC="$THIS_CIDR_SVC" || THIS_CIDR_SVC="10.43.0.0/16";
 THIS_IPV6="${THIS_IPV6:-0}";
-THIS_DNS="$THIS_DNS" || THIS_DNS="185.12.64.1 1.1.1.1 8.8.8.8 2606:4700:4700::1111";
+THIS_DNS="$THIS_DNS" || THIS_DNS="185.12.64.1 185.12.64.2 2a01:4ff:ff00::add:1 2a01:4ff:ff00::add:2";
 THIS_IFACES+=( $(iface_names) )
 THIS_IF0="${THIS_IFACES[0]}"
 THIS_IF1="${THIS_IFACES[1]}"
@@ -257,4 +257,4 @@ fstrim --all;
 echo -e "| CLOUD-FINISH ... :: end :: ..."
 # · ---
 
-return 0
+
